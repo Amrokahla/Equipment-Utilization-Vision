@@ -2,6 +2,8 @@
 
 This document explains the Eaglevision project at a high level: what the main parts of the system are, how they communicate, and how data flows through the platform.
 
+For **why** the project exists, the **problem**, and **assessment goals**, start with [`00-PROJECT-OVERVIEW.md`](00-PROJECT-OVERVIEW.md).
+
 It is intentionally focused on architecture and system relationships, not on code-level implementation.
 
 The goal is to help anyone on the team, especially junior engineers, understand the system before reading code.
@@ -17,9 +19,9 @@ Its main goal is to process incoming video, detect and track machines, classify 
 At a high level, the system is built around:
 
 - **Video processing services** for ingestion, CV, state handling, and analytics
-- **Kafka** for asynchronous event streaming between services
+- **Apache Kafka** as the **main communication channel** — between **backend services** (each other) and between **frontend and backend** (via the API Gateway as the bridge; the browser does not speak the Kafka protocol directly)
 - **PostgreSQL / TimescaleDB** for persistence and analytics storage
-- **API Gateway** for frontend access
+- **API Gateway** — participates in Kafka (consumes and produces topics) and **exposes the browser edge** (HTTP, WebSockets, or similar) so the dashboard can use the same event model
 - **Next.js app** for dashboards and visualization
 - **Docker / Docker Compose** for local orchestration and environment setup
 
@@ -33,7 +35,7 @@ If you are new to event-driven systems, think about Eaglevision like a factory l
 - the **state service** decides what those machines are doing over time
 - the **analytics service** turns that activity into useful numbers
 - the **database** stores the results
-- the **API gateway** serves those results to the frontend
+- **Kafka** is the shared spine for live data and commands; the **API gateway** connects the **dashboard** to that spine
 - the **dashboard** shows the final view to users
 
 That mental model is enough to understand most of the architecture.
@@ -48,6 +50,7 @@ This means:
 
 - Each backend service has a **single clear responsibility**
 - Services communicate primarily through **Kafka topics**
+- The **frontend and backend** are also aligned through **Kafka** (the gateway **bridges** the browser to topics; see below)
 - Components are **loosely coupled**, so one part can evolve without tightly breaking others
 - Data processing is handled as a **pipeline**, where each stage consumes input, enriches it, and produces the next event
 
@@ -82,6 +85,7 @@ flowchart LR
     K3[Kafka: machine_state]
     AN[Analytics Service]
     DB[(PostgreSQL / TimescaleDB)]
+    K4[Kafka: analytics_updates]
     API[API Gateway]
     UI[Next.js Dashboard]
 
@@ -93,6 +97,8 @@ flowchart LR
     SM --> K3
     K3 --> AN
     AN --> DB
+    AN --> K4
+    K4 --> API
     DB --> API
     API --> UI
 ```
@@ -105,7 +111,7 @@ Read it from left to right:
 2. backend services process it in stages
 3. Kafka sits between those stages
 4. analytics are stored in the database
-5. the API gateway exposes the results
+5. the API gateway **consumes Kafka** (for example `analytics_updates`) and **reads the database**, then serves the dashboard
 6. the frontend renders the results for users
 
 ---
@@ -182,7 +188,7 @@ This layer exposes the system to users.
 - **API Gateway**
 - **Next.js dashboard**
 
-The frontend does not communicate directly with the internal processing services. It goes through the gateway.
+The frontend does not call internal processing services directly. It uses the **gateway**, which **participates in Kafka** and bridges the UI to the same event backbone as the services.
 
 ---
 
@@ -244,14 +250,15 @@ This service is focused on reporting-oriented data rather than raw CV output.
 
 ### 5.5 API Gateway
 
-The API Gateway is the frontend-facing backend entrypoint.
+The API Gateway is the **browser-facing** entrypoint and a **first-class participant in Kafka**.
 
 Responsibilities:
 
-- expose HTTP APIs for the dashboard
-- serve machine state and analytics data
-- hide internal service complexity from the frontend
-- provide a stable integration boundary for the app
+- **consume** relevant topics (for example `analytics_updates` and related streams) so dashboards receive **live, event-driven** updates
+- **produce** Kafka messages when the UI must send commands or acknowledgements into the backend pipeline (exact topics are an implementation detail)
+- expose **HTTP** (and optionally **WebSockets**) to the Next.js app — the **browser** uses normal web protocols; the gateway **translates** between those and Kafka
+- read from PostgreSQL when serving historical or query-heavy views
+- hide internal service topology from the frontend
 
 The gateway is the only backend layer the frontend should depend on directly.
 
@@ -266,7 +273,18 @@ Responsibilities:
 - present near-real-time updates
 - allow operators or stakeholders to inspect machine behavior
 
-The app is a consumer of processed data, not a participant in the internal event pipeline.
+The app is a **client** of the gateway. **Semantically**, end-to-end communication is **Kafka-driven**: the gateway connects the UI to the same **event backbone** the services use.
+
+---
+
+### 5.7 How the frontend fits Kafka (without running Kafka in the browser)
+
+Browsers do not connect to Kafka brokers directly. The pattern is:
+
+1. **Backend services** talk to Kafka over the **Kafka protocol**.
+2. The **API Gateway** connects to Kafka as a **producer and consumer**.
+3. The **Next.js app** talks to the gateway over **HTTP / WebSockets** (or similar).
+4. So **Kafka remains the main communication channel** for the **system’s** semantics: frontend and backend stay aligned through **topics**, with the gateway as the bridge.
 
 ### Component relationship diagram
 
@@ -294,77 +312,58 @@ flowchart TB
     SM --> K
     K --> AN
     AN --> DB
+    AN --> K
+    K <--> API
     DB --> API
-    API --> UI
+    API <--> UI
 ```
+
+Kafka is the **shared backbone** for both the processing pipeline and the gateway’s **event-driven** link to the UI (see section 5.7).
 
 ---
 
 ## 6. Communication model
 
-Eaglevision uses two main communication styles.
+**Kafka is the main communication channel** in Eaglevision:
 
-### 6.1 Asynchronous communication inside the backend
+- **Backend ↔ Backend:** services publish and consume **Kafka topics** (the processing pipeline).
+- **Frontend ↔ Backend:** the **API Gateway** connects the Next.js app to that same model — it **produces and consumes Kafka topics** and exposes **HTTP / WebSockets** to the browser. The browser never talks to Kafka directly, but **live behavior** is **Kafka-backed** through the gateway.
 
-Backend processing services communicate through **Kafka topics**.
+Other mechanisms play a **supporting** role:
 
-This is the primary internal communication pattern because:
+- **PostgreSQL** — durable storage and queries (not the primary event bus).
+- **HTTP / WebSockets** — **transport** between browser and gateway only; the **meaning** of live traffic is still tied to **Kafka topics** on the backend side.
 
-- video processing is sequential and pipeline-based
-- producers and consumers should remain independent
-- services may operate at different speeds
-- replay and debugging are valuable for event-driven systems
+### Why Kafka for both service and UI-facing traffic
 
-Kafka is used for communication such as:
-
-- raw frames from ingestion to CV
-- machine events from CV to state manager
-- machine state updates from state manager to analytics
-- analytics notifications for downstream consumers
-
-### 6.2 Synchronous communication to the frontend
-
-The frontend communicates with the backend through the **API Gateway** over **HTTP**.
-
-This pattern is used because:
-
-- dashboards need a clean and stable API
-- internal services should not be exposed directly
-- the frontend should not need to understand Kafka or internal service boundaries
-
-For near-real-time updates, the gateway may expose:
-
-- WebSockets
-- or other live-update interfaces in the future
-
-The important architectural rule is:
-
-- **Frontend <-> API Gateway** is synchronous
-- **Service <-> Service** is primarily asynchronous through Kafka
+- One **event model** for the whole system reduces mismatches between what operators see and what services process.
+- The gateway can **subscribe** to topics such as `analytics_updates` and **push** equivalent updates to the dashboard.
+- **Scaling** and **replay** stay coherent because the spine is the same broker network.
 
 ### Communication diagram
 
 ```mermaid
 flowchart LR
-    UI[Next.js Dashboard]
+    UI[Next.js App]
     API[API Gateway]
     K[Kafka]
     S1[Backend Services]
-    DB[(PostgreSQL / TimescaleDB)]
+    DB[(PostgreSQL)]
 
     UI <-- HTTP / WebSocket --> API
-    API --> DB
+    API <--> K
     S1 <--> K
     S1 --> DB
+    API --> DB
 ```
 
 ### Beginner-friendly rule of thumb
 
 If you are ever unsure how two parts should talk:
 
-- if it is **frontend to backend**, think **API Gateway**
-- if it is **one processing service to another**, think **Kafka**
-- if it is **historical data or analytics**, think **database**
+- if it is **service to service**, think **Kafka topics**
+- if it is **browser to backend**, think **API Gateway first**, then remember the gateway is **wired to Kafka** for the main event flow
+- if it is **historical or queryable** business data, think **PostgreSQL**
 
 ---
 
@@ -383,10 +382,16 @@ flowchart LR
     G[Kafka: machine_state]
     H[Analytics Service]
     I[(PostgreSQL / TimescaleDB)]
+    T[Kafka: analytics_updates]
     J[API Gateway]
     K[Next.js Dashboard]
 
-    A --> B --> C --> D --> E --> F --> G --> H --> I --> J --> K
+    A --> B --> C --> D --> E --> F --> G --> H
+    H --> I
+    H --> T
+    T --> J
+    I --> J
+    J --> K
 ```
 
 ### 7.1 Step-by-step explanation
@@ -427,9 +432,7 @@ This is where raw activity becomes dashboard-friendly information such as totals
 
 #### Step 6: Data is served to users
 
-The API Gateway reads analytics and machine state from storage or downstream services, then exposes the data to the dashboard.
-
-The gateway acts like a clean front desk. The frontend asks the gateway for data instead of going directly to internal services.
+The API Gateway serves the dashboard: it may **read PostgreSQL** for historical or snapshot views, and it **consumes Kafka topics** (such as `analytics_updates`) so **live** behavior stays aligned with the pipeline. The browser talks only to the gateway; **Kafka remains the main channel** for event semantics between backend components and between gateway and pipeline.
 
 #### Step 7: The dashboard presents insights
 
@@ -636,7 +639,7 @@ A service that reads events from Kafka.
 
 ### API Gateway
 
-A single backend entrypoint that the frontend talks to instead of calling internal services directly.
+The backend entrypoint for the browser: it **connects to Kafka** (produces and consumes topics) and exposes **HTTP / WebSockets** so the Next.js app can use the same **Kafka-centric** event model without running a Kafka client in the browser.
 
 ### Dwell time
 
@@ -650,16 +653,18 @@ Eaglevision is architected as a layered, event-driven system:
 
 - **video enters the backend**
 - **processing services transform it step by step**
-- **Kafka carries events between services**
+- **Kafka is the main communication channel** — between **services** and, via the **API Gateway**, between **frontend and backend** (browser uses HTTP/WebSockets to the gateway; the gateway uses Kafka)
 - **PostgreSQL / TimescaleDB stores durable analytics**
-- **the API Gateway exposes results**
-- **the Next.js app presents them to users**
+- **the API Gateway bridges the dashboard to Kafka and to the database**
+- **the Next.js app presents data to users**
 
-The result is a system designed for clear service boundaries, scalable processing, and a clean separation between internal computation and user-facing access.
+The result is a system designed for clear service boundaries, scalable processing, and a **single event backbone** shared by services and the operator-facing layer.
 
 ---
 
 ## Related documentation
 
+- [`00-PROJECT-OVERVIEW.md`](00-PROJECT-OVERVIEW.md) — project overview, problem statement, and goals
+- [`02-KAFKA.md`](02-KAFKA.md) — Kafka topics, producer/consumer flows, and local broker setup
 - [`initial-plan.md`](initial-plan.md) — original stack and topic list
 - [`plans/01-codebase-building.md`](plans/01-codebase-building.md) — repository layout and Docker-first setup
