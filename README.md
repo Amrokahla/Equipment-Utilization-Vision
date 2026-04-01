@@ -2,7 +2,7 @@
 
 Eaglevision is an equipment utilization and activity classification system for processing construction-site video streams into machine events, state transitions, analytics, and dashboard views.
 
-This repository currently contains the initial codebase skeleton only. The goal of this stage is to establish the project layout, container structure, and development infrastructure before implementing any service logic.
+The repository includes a **Next.js** app under `app/` (App Router, TypeScript, Tailwind) and placeholder backend service containers. Backend service logic is still to be implemented.
 
 ## Documents
 
@@ -15,7 +15,7 @@ This repository currently contains the initial codebase skeleton only. The goal 
 - Docker
 - Docker Compose
 - Python 3.10 (optional local editor tooling / virtualenv)
-- Node.js (only needed once the Next.js app is scaffolded)
+- Node.js 20+ (for local `npm run dev` in `app/`; Docker builds the app image without a host install)
 
 ## Local setup
 
@@ -37,7 +37,7 @@ docker compose build
 docker compose up
 ```
 
-At this stage, service and app containers are placeholders so the repository can boot with a complete structure. They will be replaced with real implementations in later milestones.
+The **app** image runs a real Next.js production build. Python services are still placeholders (`sleep`-style) until implemented.
 
 ## Default ports
 
@@ -45,10 +45,11 @@ At this stage, service and app containers are placeholders so the repository can
 | --------- | --------- |
 | Kafka | `9092` |
 | PostgreSQL | `5432` |
-| App placeholder | `3000` |
+| Next.js (app) | `3000` |
 
 ## Notes
 
-- Kafka topics are bootstrapped from `src/dev/kafka/topics.txt`.
+- Kafka runs as **`apache/kafka:3.8.1`** (KRaft). Other services use `kafka:29092` on the Compose network; the host maps broker port `9092` by default.
+- Kafka topics are bootstrapped from `src/dev/kafka/topics.txt` by the one-shot `kafka-init` service.
 - PostgreSQL initialization files can be placed in `docker/postgres/init/`.
 - Shared Python package structure lives under `src/`.
