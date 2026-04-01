@@ -1,0 +1,5 @@
+pydantic>=2.0
+pydantic-settings>=2.0
+confluent-kafka>=2.3
+opencv-python-headless>=4.8
+numpy>=1.24
