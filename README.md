@@ -2,13 +2,14 @@
 
 Eaglevision is an equipment utilization and activity classification system for processing construction-site video streams into machine events, state transitions, analytics, and dashboard views.
 
-The repository includes a **Next.js** app under `app/` (App Router, TypeScript, Tailwind) and placeholder backend service containers. Backend service logic is still to be implemented.
+The repository includes a **Next.js** app under `app/` (App Router, TypeScript, Tailwind) and backend service containers. The **API Gateway** is fully implemented; remaining backend services are still placeholders.
 
 ## Documents
 
 - [`docs/00-PROJECT-OVERVIEW.md`](docs/00-PROJECT-OVERVIEW.md) — project overview, problem statement, and goals (from the technical assessment)
 - [`docs/01-ARCHTICUTRE.md`](docs/01-ARCHTICUTRE.md) — high-level architecture, communication, and data flow
 - [`docs/02-KAFKA.md`](docs/02-KAFKA.md) — Kafka topics, flows, and how services (and the API Gateway) use the broker
+- [`docs/03-MICROSERVICES.md`](docs/03-MICROSERVICES.md) — the generic structure and rules all backend services should follow
 
 Local-only planning files may live under `docs/plans/` (ignored by git).
 
@@ -65,11 +66,12 @@ The **app** image runs a real Next.js production build. Python services are stil
 | --------- | --------- |
 | Kafka | `9092` |
 | PostgreSQL | `5432` |
+| API Gateway | `8000` |
 | Next.js (app) | `3000` |
 
 ## Notes
 
 - Kafka runs as **`apache/kafka:3.8.1`** (KRaft). Other services use `kafka:29092` on the Compose network; the host maps broker port `9092` by default.
 - Kafka topics are bootstrapped from `src/dev/kafka/topics.txt` by the one-shot `kafka-init` service.
-- PostgreSQL initialization files can be placed in `docker/postgres/init/`.
-- Shared Python package structure lives under `src/`.
+- PostgreSQL tables are bootstrapped from `src/dev/db/init.sql` (mounted into the Postgres container on first start). The gateway also runs `CREATE IF NOT EXISTS` on every startup as a safety net.
+- Shared Python package structure lives under `src/`. Common models used by all services are in `src/common/models/`.

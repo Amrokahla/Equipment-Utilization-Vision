@@ -67,7 +67,7 @@ services:
       retries: 10
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./src/dev/db:/docker-entrypoint-initdb.d:ro
     networks:
       - eaglevision
 
@@ -133,16 +133,20 @@ services:
 
   api-gateway:
     build:
-      context: ./src/services/api_gateway_service
+      context: ./src
+      dockerfile: services/api_gateway_service/Dockerfile
     container_name: eaglevision-api-gateway
     depends_on:
       kafka:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}"
       DATABASE_URL: "${DATABASE_URL:-postgresql://eaglevision:eaglevision@postgres:5432/eaglevision}"
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:3000}"
     networks:
       - eaglevision
 
@@ -157,6 +161,8 @@ services:
         condition: service_started
     ports:
       - "${APP_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_GATEWAY_URL: "http://localhost:${GATEWAY_PORT:-8000}"
     networks:
       - eaglevision
 

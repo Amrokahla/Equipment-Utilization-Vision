@@ -1,1 +1,1 @@
-"""Shared package placeholder for future Eaglevision modules."""
+"""Shared library for Eaglevision microservices."""
