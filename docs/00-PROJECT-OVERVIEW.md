@@ -103,8 +103,8 @@ The assessment lists the following **submission** items. They define what “com
 | **`00-PROJECT-OVERVIEW.md` (this file)** | **Why** the project exists, **what problem** it solves, **what goals** and assessment scope apply. |
 | [`01-ARCHTICUTRE.md`](01-ARCHTICUTRE.md) | **How** the system is structured: layers, services, communication, data flow. |
 | [`02-KAFKA.md`](02-KAFKA.md) | **How Kafka** is used: topics, flows, local broker, gateway bridge. |
-| [`initial-plan.md`](initial-plan.md) | Earlier internal architecture notes and stack choices. |
-| [`plans/01-codebase-building.md`](plans/01-codebase-building.md) | Repository layout and Docker-first bootstrap plan. |
+
+Optional **local** notes (for example under `docs/plans/`) are **gitignored** and not part of the shared repository.
 
 ---
 

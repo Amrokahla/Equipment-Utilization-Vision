@@ -666,5 +666,3 @@ The result is a system designed for clear service boundaries, scalable processin
 
 - [`00-PROJECT-OVERVIEW.md`](00-PROJECT-OVERVIEW.md) — project overview, problem statement, and goals
 - [`02-KAFKA.md`](02-KAFKA.md) — Kafka topics, producer/consumer flows, and local broker setup
-- [`initial-plan.md`](initial-plan.md) — original stack and topic list
-- [`plans/01-codebase-building.md`](plans/01-codebase-building.md) — repository layout and Docker-first setup

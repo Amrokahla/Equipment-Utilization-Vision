@@ -9,8 +9,8 @@ The repository includes a **Next.js** app under `app/` (App Router, TypeScript, 
 - [`docs/00-PROJECT-OVERVIEW.md`](docs/00-PROJECT-OVERVIEW.md) — project overview, problem statement, and goals (from the technical assessment)
 - [`docs/01-ARCHTICUTRE.md`](docs/01-ARCHTICUTRE.md) — high-level architecture, communication, and data flow
 - [`docs/02-KAFKA.md`](docs/02-KAFKA.md) — Kafka topics, flows, and how services (and the API Gateway) use the broker
-- [`docs/initial-plan.md`](docs/initial-plan.md) — initial architecture and system flow
-- [`docs/plans/01-codebase-building.md`](docs/plans/01-codebase-building.md) — codebase layout and tech stack setup plan
+
+Local-only planning files may live under `docs/plans/` (ignored by git).
 
 ## Requirements
 

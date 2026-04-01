@@ -17,6 +17,7 @@ data/
 samples/
 runs/
 models/
+# Local planning notes (e.g. docs/plans/) — not committed
 plans/
 *.pt
 

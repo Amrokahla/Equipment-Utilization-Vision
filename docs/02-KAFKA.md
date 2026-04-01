@@ -329,5 +329,3 @@ These are natural next steps as the system matures:
 
 - [`00-PROJECT-OVERVIEW.md`](00-PROJECT-OVERVIEW.md) — project overview, problem statement, and goals
 - [`01-ARCHTICUTRE.md`](01-ARCHTICUTRE.md) — high-level architecture, layers, and communication diagrams
-- [`initial-plan.md`](initial-plan.md) — original stack and topic list
-- [`plans/01-codebase-building.md`](plans/01-codebase-building.md) — repository layout and Docker-first setup
