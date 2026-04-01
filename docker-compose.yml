@@ -147,6 +147,8 @@ services:
       - eaglevision
 
   app:
+    profiles:
+      - app
     build:
       context: ./app
     container_name: eaglevision-app
